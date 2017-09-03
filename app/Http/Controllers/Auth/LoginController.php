@@ -100,10 +100,33 @@ class LoginController extends Controller
      * @desc deauth when user removes the app from the facebook
      */
     public function fbDeauthCallBack(){
-        User::where('access_token',$_SESSION['fb_long_living_access_token'])->update(array('is_active' => 0));
+        $result = $this->parseSignedRequest($_POST['signed_request']);
+        User::where('access_token',$_SESSION['fb_long_living_access_token'])->where('fb_id',$result->user_id)->update(array('is_active' => 0));
         session_destroy();
+        return redirect('/');
     }
 
+    /**
+     * @param $signed_request
+     * @return array of user data
+     */
+    private function parseSignedRequest($signedRequest) {
+            list($encoded_sig, $payload) = explode('.', $signedRequest, 2);
+            $secret = getenv('FB_APP_SECRET');
+            // Use your app secret here
+
+            // decode the data
+            $sig = base64_url_decode($encoded_sig);
+            $data = json_decode(base64_url_decode($payload), true);
+
+            // confirm the signature
+            $expected_sig = hash_hmac('sha256', $payload, $secret, $raw = true);
+            if ($sig !== $expected_sig) {
+                error_log('Bad Signed JSON signature!');
+                return null;
+            }
+
+        }
     /**
      * @desc logs a user out and destroy his session
      */
